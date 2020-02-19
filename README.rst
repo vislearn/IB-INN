@@ -30,6 +30,7 @@ To implement the INNs, we use of the FrEIA library
 (github.com/VLL-HD/FrEIA)
 
 .. code:: sh
+
     pip install git+https://github.com/VLL-HD/FrEIA.git
 
 Additional requirements:
