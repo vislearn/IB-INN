@@ -9,13 +9,11 @@ USAGE
 * All configuration files for all experiments in the paper are contained
   in the directory 'experiments_configs'.
 
-* Training:
-  .. code:: sh
+* Training (for one example configuration):
 
       python main.py train experiments_configs/cifar10/full_model.ini
 
 * Testing:
-  .. code:: sh
 
       python main.py test experiments_configs/cifar10/full_model.ini
 
