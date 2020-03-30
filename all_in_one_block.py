@@ -37,8 +37,6 @@ class AIO_Block(nn.Module):
 
         if act_norm:
             self.act_norm.data += np.log(act_norm)
-            self.act_norm.requires_grad = False
-            self.act_offset.requires_grad = False
             self.act_norm_trigger = False
 
         if permute_soft:

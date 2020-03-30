@@ -2,6 +2,7 @@ import glob
 import os
 
 import torch
+from tqdm import tqdm
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -13,36 +14,34 @@ from matplotlib.backends.backend_pdf import PdfPages
 from model import GenerativeClassifier
 import data
 
-def average_batch_norm_vib(model, data):
+def average_batch_norm_vib(model, data, N_epochs=5):
     for module in model.children():
         if type(module) == torch.nn.BatchNorm2d:
-            print(1)
             module.reset_running_stats()
             module.momentum = None
         for subnet in module.children():
             if type(subnet) == torch.nn.BatchNorm2d:
-                print(2)
                 subnet.reset_running_stats()
                 subnet.momentum = None
             for layer in subnet.children():
                 if type(layer) == torch.nn.BatchNorm2d:
-                    print(3)
                     layer.reset_running_stats()
                     layer.momentum = None
     model.train()
+    progress_bar = tqdm(total=N_epochs * len(data.train_loader),
+                        ncols=120, ascii=True, mininterval=1.)
     with torch.no_grad():
-        count = 0
-        for x, l in data.train_loader:
-            x = x.cuda()
-            losses = model(x)
-            count += 1
-            #if count > 100:
-                #break
+        for i in range(N_epochs):
+            for x, l in data.train_loader:
+                x = x.cuda()
+                losses = model(x)
+                progress_bar.update()
 
     model.eval()
 
-def average_batch_norm(model, data):
+def average_batch_norm(model, data, N_epochs=5):
     # because of FrEIA, there are so many layers and layers of subnetworks...
+    instance_counter = 0
     for node in model.inn.children():
         for module in node.children():
             for subnet in module.children():
@@ -50,17 +49,19 @@ def average_batch_norm(model, data):
                     if type(layer) == torch.nn.BatchNorm2d:
                         layer.reset_running_stats()
                         layer.momentum = None
+                        instance_counter += 1
 
     model.train()
+    progress_bar = tqdm(total=N_epochs * len(data.train_loader),
+                        ncols=120, ascii=True, mininterval=1.)
     with torch.no_grad():
-        count = 0
-        for x, l in data.train_loader:
-            x = x.cuda()
-            z = model.inn(x)
-            count += 1
-            #if count > 100:
-                #break
+        for i in range(N_epochs):
+            for x, l in data.train_loader:
+                x = x.cuda()
+                z = model.inn(x)
+                progress_bar.update()
 
+    print(f'\n>>> Reset {instance_counter} instances of torch.nn.BatchNorm2d')
     model.eval()
 
 def show_samples(model, data, y, T=0.75):
@@ -157,21 +158,14 @@ def outlier_detection(inn_model, data, test_set=False):
 
     in_distrib_data = (data.test_loader if test_set else [(data.val_x, torch.argmax(data.val_y, dim=1))])
 
-    #from torchvision.datasets import FashionMNIST
-    #from torch.utils.data import DataLoader
-    #fashion_generator  = DataLoader(FashionMNIST('./fashion_mnist', download=True, train=False, transform=data.transform),
-                                    #batch_size=data.batch_size, num_workers=8)
-
 
     scores_all = {}
     entrop_all = {}
     generators = []
-    #for a in np.linspace(0., 1., 12):
-        #generators.append((ood_datasets.cifar.cifar_rgb_rotation(inn_model.args, a), 'rot_%.3f' % (a)))
 
     generators = [
                       (ood_datasets.cifar.cifar_rgb_rotation(inn_model.args, 0.35), 'rot_%.3f' % (0.3)),
-                      (ood_datasets.quickdraw.quickdraw_colored(inn_model.args), 'Qucikdraw'),
+                      (ood_datasets.quickdraw.quickdraw_colored(inn_model.args), 'Quickdraw'),
                       (ood_datasets.cifar.cifar_noise(inn_model.args, 0.01), 'Noisy'),
                       (ood_datasets.imagenet.imagenet(inn_model.args), 'ImageNet'),
                       #(ood_datasets.svhn.svhn(inn_model.args), 'SVHN'),

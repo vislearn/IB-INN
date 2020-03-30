@@ -15,7 +15,7 @@ def train(args):
 
     N_epochs = int(args['training']['n_epochs'])
     beta = float(args['training']['beta_IB'])
-    train_nll = int(not eval(args['ablations']['no_NLL_term']))
+    train_nll = bool(not eval(args['ablations']['no_NLL_term']))
     train_class_nll = eval(args['ablations']['class_NLL'])
     label_smoothing = float(args['data']['label_smoothing'])
     grad_clip = float(args['training']['clip_grad_norm'])
@@ -86,12 +86,6 @@ def train(args):
         inn.load(resume)
 
     t_start = time()
-    lr_burn_in = int(args['training']['lr_burn_in'])
-    burn_in_multiplier = 0.05
-    burn_in_counter = 0
-    for g in inn.optimizer.param_groups:
-        g['lr'] *= burn_in_multiplier
-
     if train_nll:
         beta_x = 2. / (1 + beta)
         beta_y = 2. * beta / (1 + beta)
@@ -101,11 +95,6 @@ def train(args):
     try:
         for i_epoch in range(N_epochs):
             running_avg = {l: [] for l in train_loss_names}
-
-            if burn_in_counter == lr_burn_in:
-                for g in inn.optimizer.param_groups:
-                    g['lr'] /= burn_in_multiplier
-            burn_in_counter += 1
 
             for i_batch, (x,l) in enumerate(dataset.train_loader):
 

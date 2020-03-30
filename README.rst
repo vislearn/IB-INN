@@ -11,11 +11,11 @@ USAGE
 
 * Training (for one example configuration):
 
-      python main.py train experiments_configs/cifar10/full_model.ini
+      `python -W ignore main.py train experiments_configs/cifar10/full_model.ini`
 
 * Testing:
 
-      python main.py test experiments_configs/cifar10/full_model.ini
+      `python -W ignore main.py test experiments_configs/cifar10/full_model.ini`
 
 * The cifar/mnist datasets should be downloaded automatically the first time
   it is run. For the OoD evaluation, tiny imagenet and quickdraw have to be downloaded
