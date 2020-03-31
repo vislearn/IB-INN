@@ -40,7 +40,7 @@ def average_batch_norm_vib(model, data, N_epochs=5):
     progress_bar.close()
     model.eval()
 
-def average_batch_norm(model, data, N_epochs=1):
+def average_batch_norm(model, data, N_epochs=5):
     # because of FrEIA, there are so many layers and layers of subnetworks...
     instance_counter = 0
     for node in model.inn.children():
