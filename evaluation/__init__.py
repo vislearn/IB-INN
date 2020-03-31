@@ -37,9 +37,10 @@ def average_batch_norm_vib(model, data, N_epochs=5):
                 losses = model(x)
                 progress_bar.update()
 
+    progress_bar.close()
     model.eval()
 
-def average_batch_norm(model, data, N_epochs=5):
+def average_batch_norm(model, data, N_epochs=1):
     # because of FrEIA, there are so many layers and layers of subnetworks...
     instance_counter = 0
     for node in model.inn.children():
@@ -61,6 +62,7 @@ def average_batch_norm(model, data, N_epochs=5):
                 z = model.inn(x)
                 progress_bar.update()
 
+    progress_bar.close()
     print(f'\n>>> Reset {instance_counter} instances of torch.nn.BatchNorm2d')
     model.eval()
 

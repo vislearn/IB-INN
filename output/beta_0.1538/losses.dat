@@ -1,2 +1,0 @@
-           time          epoch      iteration   nll_joint_tr  nll_joint_val      cat_ce_tr     cat_ce_val         acc_tr        acc_val   delta_mu_val
-            0.0      0000/0450      0000/0382       17.17082       16.76698        0.51711        0.01190        0.10156        0.08594        5.00000
