@@ -165,9 +165,9 @@ class Dataset():
         self.val_y = self.onehot(torch.LongTensor([x[1] for x in self.val_data]).cuda(), label_smoothing)
 
         self.train_loader  = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True,
-                                   num_workers=10, pin_memory=True, drop_last=True)
-        self.test_loader   = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False,
                                    num_workers=6, pin_memory=True, drop_last=True)
+        self.test_loader   = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False,
+                                   num_workers=4, pin_memory=True, drop_last=True)
 
     def show_data_hist(self):
         x = self.val_x.cpu().numpy()
