@@ -10,6 +10,7 @@ beta_values=(0.0200
              0.4270
              0.6002
              0.8435
+             1.0000
              1.1855
              1.6662
              2.3419
@@ -28,8 +29,8 @@ for b in ${beta_values[@]}; do
     cat << EOF > beta_${b}.ini
 [checkpoints]
 base_name = beta_${b}
-interval_checkpoint = 200
-interval_figure = 200
+interval_checkpoint = 1000
+interval_figure = 1000
 live_updates = False
 
 [training]
