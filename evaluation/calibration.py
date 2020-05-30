@@ -32,9 +32,9 @@ def calibration_curve(model, data):
         points_in_bin = 1000
 
     n_bins = np.ceil(pred.size / points_in_bin)
-    pred_bins = np.concatenate([np.linspace(-1e-6, 5e-2, 8),
-                                np.linspace(5e-2, 1-5e-2, 16)[1:-1],
-                                1. - np.linspace(5e-2, -1e-6, 8),])
+    pred_bins = np.concatenate([np.linspace(-1e-6, 5e-2, 5),
+                                np.linspace(5e-2, 1-5e-2, 10)[1:-1],
+                                1. - np.linspace(5e-2, -1e-6, 5),])
 
     correct = pred[gt]
     wrong = pred[np.logical_not(gt)]
@@ -68,7 +68,7 @@ def calibration_curve(model, data):
     plt.tight_layout()
 
     # Compute 'overconfidence'. might be better indicator than ECE, but not widely used
-    overconfidence_thresh = 0.3 / 100.
+    overconfidence_thresh = 0.5 / 100.
     confident_pred = (max_pred > (1 - overconfidence_thresh))
 
     # 'expected calibration error', see weinberger paper on calibration

@@ -42,7 +42,7 @@ def average_batch_norm(model, data, N_epochs=5):
                 progress_bar.update()
 
     progress_bar.close()
-    print(f'\n>>> Reset {instance_counter} instances of torch.nn.BatchNorm2d')
+    print(f'\n>> Reset {instance_counter} instances of torch.nn.BatchNorm2d')
     model.eval()
 
 def average_batch_norm_vib(model, data, N_epochs=5):
@@ -98,27 +98,22 @@ def val_plots(fname, model, data):
 
 def test(args):
 
-    model_fname = os.path.join(args['checkpoints']['output_dir'], 'model.pt')
-    fig_fname = os.path.join(args['checkpoints']['output_dir'], 'figs.pdf')
-    logfile = open(os.path.join(args['checkpoints']['output_dir'], f'results.dat'), 'w')
+    output_dir = args['checkpoints']['output_dir']
+    model_fname = os.path.join(output_dir, 'model.pt')
+    fig_fname = os.path.join(output_dir, 'figs.pdf')
 
     do_ood = eval(args['evaluation']['ood'])
     vib_model = eval(args['ablations']['vib'])
 
 
-    def log_write(line, endline='\n'):
-        print('\t' + line, flush=True)
-        logfile.write(line)
-        logfile.write(endline)
-
     print('>> Plotting loss curves')
     try:
-        losses = np.loadtxt(os.path.join(args['checkpoints']['output_dir'], 'losses.dat'),
+        losses = np.loadtxt(os.path.join(output_dir, 'losses.dat'),
                         usecols = [0] + list(range(3,10)),
                         skiprows = 1).T
     except OSError:
         try:
-            losses = np.loadtxt(os.path.join(args['checkpoints']['output_dir'], 'losses.00.dat'),
+            losses = np.loadtxt(os.path.join(output_dir, 'losses.00.dat'),
                         usecols = [0] + list(range(3,10)),
                         skiprows = 1).T
         except OSError:
@@ -166,25 +161,24 @@ def test(args):
 
     print('>> Averaging BatchNorm')
     if vib_model:
-        average_batch_norm_vib(inn, dataset, 1)
+        average_batch_norm_vib(inn, dataset, int(args['evaluation']['train_set_oversampling']))
     else:
-        average_batch_norm(inn, dataset, 1)
+        average_batch_norm(inn, dataset, int(args['evaluation']['train_set_oversampling']))
     inn.eval()
 
+
     print('>> Determining test accuracy')
-    acc = test_metrics(inn, dataset)
-    log_write('ACC     %.4f' % (100 * acc))
-    log_write('ACC ERR %.4f' % (100 - 100 * acc))
-    log_write('LATEX %.2f &' % (100 - 100 * acc))
+    # the numbers are np.float32, and jason won't eat it.
+    acc, bits_per_dim = test_metrics(inn, dataset)
+    results_dict = {'test_metrics': {'acc': float(100. * acc), 'bits': float(bits_per_dim)}}
 
     print('>> Plotting calibration curve')
     ece, mce, ice, ovc = calibration_curve(inn, dataset)
-    log_write(('XCE     ' + '%-10s' * 3) % ('ECE', 'MCE', 'OVC'))
-    log_write(('XCE     ' + '%-10.6f' * 3) % (100. * ece, 100. * mce, ovc))
-    log_write('XCE GM  %.6f' % (21.5443 * (ece*mce*max(1,ovc))**0.3333333333333))
-    log_write('XCE GMO %.6f' % (21.5443 * (ece*mce*ovc)**0.3333333333333))
-    log_write('LATEX %.3f & %.2f & %.2f & %.2f & ' % ((21.5443 * (ece*mce*max(1,ovc))**0.3333333333333),
-                                                                100. * ece, 100. * mce, ovc))
+    results_dict['calib_err'] = {'ece': float(100. * ece),
+                                 'mce': float(100. * mce),
+                                 'oce': float(ovc),
+                                 'gme': float(21.5443 * (ece*mce*max(1,ovc))**0.333333333)}
+
     if not vib_model and not inn.feed_forward:
         print('>> Plotting generated samples')
         n_classes = dataset.n_classes
@@ -196,35 +190,31 @@ def test(args):
         print('>> Plotting latent space')
         show_latent_space(inn, dataset, test_set=True)
 
-    auc_records, ent_records = [], []
     if do_ood:
         print('>> Determining outlier AUC')
-        aucs, entrop = outlier_detection(inn, dataset, test_set=True)
-        print()
-        for label, auc in aucs.items():
-            printstr = 'AUC %-24s %.5f\n' % (label, aucs[label])
-            auc_records.append(printstr)
+        aucs_1t, aucs_2t, aucs_tt, entrop = outlier_detection(inn, dataset, args, test_set=True)
 
-        for label, ent in entrop.items():
-            printstr = 'ENT %-24s %.5f\n' % (label, entrop[label])
-            ent_records.append(printstr)
+        for aucs, test_type in zip([aucs_1t, aucs_2t, aucs_tt, entrop],
+                                   ['ood_1t', 'ood_2t', 'ood_tt', 'ood_ent']):
+            m = len(list(aucs.keys()))
+            geo_mean = np.prod(list(aucs.values())) ** (1./m)
+            ari_mean = np.mean(list(aucs.values()))
 
-        labels_list = list(aucs.keys())
-        log_write('DATASET ' + ''.join(['%-12s' % (l) for l in labels_list]))
-        log_write('AUC     ' + ''.join(['%-12.4f' % (100 * aucs[l]) for l in labels_list]))
-        log_write('AUC ERR ' + ''.join(['%-12.4f' % (100 - 100 * aucs[l]) for l in labels_list]))
-        log_write('ENT     ' + ''.join(['%-12.4f' % (entrop[l]) for l in labels_list]))
-        log_write('AUC GM  %.6f' % (100. * np.prod(np.array(list(aucs.values()))) ** (1./len(labels_list))))
-        log_write('ENT GM  %.6f' % (np.prod(np.array(list(entrop.values()))) ** (1./len(labels_list))))
+            aucs['geo_mean'] = geo_mean
+            aucs['ari_mean'] = ari_mean
 
-        log_write('LATEX   %.2f & ' % (100. * np.prod(np.array(list(aucs.values()))) ** (1./len(labels_list)))
-                + ' & '.join(['%-8.1f' % (100 * aucs[l]) for l in labels_list]) + '&')
-        log_write('LATEX   %.3f & ' % (np.prod(np.array(list(entrop.values()))) ** (1./len(labels_list)))
-                + ' & '.join(['%-8.2f' % (entrop[l]) for l in labels_list]))
+            for k,v in aucs.items():
+                aucs[k] = float(v)
 
-    logfile.close()
+            results_dict[test_type] = aucs
+
     print('>> Saving figures')
     with PdfPages(fig_fname) as pp:
         figs = [plt.figure(n) for n in plt.get_fignums()]
         for fig in figs:
             fig.savefig(pp, format='pdf')
+
+    print('>> Generating data output files')
+    output.to_json(results_dict, output_dir)
+    output.to_console(results_dict, output_dir)
+    output.to_latex_table_row(results_dict, output_dir, name=args['checkpoints']['base_name'])

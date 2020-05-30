@@ -3,3 +3,4 @@ output/*
 __pycache__
 ood_datasets/*.npy
 cifar_data
+svhn_data
