@@ -2,31 +2,67 @@ import json
 from os.path import join
 import numpy as np
 
-def to_latex_table_row(results_dict, out_dir, name=""):
+def to_latex_table_row(results_dict, out_dir, name="",
+                       italic_ood=False,
+                       blank_ood=False,
+                       italic_entrop=False,
+                       blank_classif=False):
+
     name = name.replace("_", " ")
     outfile = open(join(out_dir, 'results.tex'), 'w')
 
-    outfile.write("{:>14s} &{:>14.2f} &{:>14.2f} &\n".format(name,
-                                                     results_dict['test_metrics']['acc'],
-                                                     results_dict['test_metrics']['bits']))
+
+    outfile.write(" & {:>14s} &\n".format(name))
+    if blank_classif:
+        outfile.write("{:>14s}  {:>14s} &{:>14.2f} &\n".format(' ', '--',
+                                                              results_dict['test_metrics']['bits']))
+    else:
+        outfile.write("{:>14s}  {:>14.2f} &{:>14.2f} &\n".format(' ',
+                                                              100. - results_dict['test_metrics']['acc'],
+                                                              results_dict['test_metrics']['bits']))
 
     ce = results_dict['calib_err']
-    outfile.write(("{:>14.2f} &" * 4 + "\n").format(ce['gme'], ce['ece'], ce['mce'], ce['oce']))
+    if blank_classif:
+        outfile.write(("{:>14s} &" * 4 + "\n").format('--', '--', '--', '--'))
+    else:
+        outfile.write(("{:>14.2f} &" * 4 + "\n").format(ce['gme'], ce['ece'], ce['mce'], ce['ice']))
 
     ood = results_dict['ood_tt']
     ent = results_dict['ood_ent']
 
-    outfile.write(("{:>14.2f} &" * 5 + "\n").format(ent['geo_mean'],
-                                                    ent['rot_rgb'],
-                                                    ent['quickdraw'],
-                                                    ent['noisy'],
-                                                    ent['imagenet']))
+    if italic_entrop:
+        se_m = '( \\it {:.2f}'.format(ent['ari_mean'])
+        se_rot = '\\it {:.2f}'.format(ent['rot_rgb'])
+        se_qui = '\\it {:.2f}'.format(ent['quickdraw'])
+        se_noi = '\\it {:.2f}'.format(ent['noisy'])
+        se_img = '\\it {:.2f})'.format(ent['imagenet'])
+        outfile.write(("{:>14s} &" * 5 + "\n").format(se_m, se_rot, se_qui, se_noi, se_img))
+    else:
+        outfile.write(("{:>14.2f} &" * 5 + "\n").format(ent['ari_mean'],
+                                                        ent['rot_rgb'],
+                                                        ent['quickdraw'],
+                                                        ent['noisy'],
+                                                        ent['imagenet']))
 
-    outfile.write((("{:>14.2f} &" * 5)[:-1] + "\\\\\n").format(100. * ood['geo_mean'],
-                                                               100. * ood['rot_rgb'],
-                                                               100. * ood['quickdraw'],
-                                                               100. * ood['noisy'],
-                                                               100. * ood['imagenet']))
+    if italic_ood or blank_ood:
+        if italic_ood:
+            oo_m = '( \\it {:.2f}'.format(100. * ood['ari_mean'])
+            oo_rot = '\\it {:.2f}'.format(100. * ood['rot_rgb'])
+            oo_qui = '\\it {:.2f}'.format(100. * ood['quickdraw'])
+            oo_noi = '\\it {:.2f}'.format(100. * ood['noisy'])
+            oo_img = '\\it {:.2f})'.format(100. * ood['imagenet'])
+        else:
+            oo_m, oo_rot, oo_qui, oo_noi, oo_img = ['--'] * 5
+
+        outfile.write((("{:>14s} &" * 5)[:-1] + "\\\\\n").format(oo_m, oo_rot, oo_qui, oo_noi, oo_img))
+
+    else:
+        outfile.write((("{:>14.2f} &" * 5)[:-1] + "\\\\\n").format(100. * ood['geo_mean'],
+                                                                   100. * ood['rot_rgb'],
+                                                                   100. * ood['quickdraw'],
+                                                                   100. * ood['noisy'],
+                                                                   100. * ood['imagenet']))
+
     outfile.close()
 
 
@@ -44,7 +80,7 @@ def to_console(results_dict, out_dir):
 
     logfile = open(join(out_dir, 'results.log'), 'w')
     ce = results_dict['calib_err']
-    ece, mce, ovc, gme = ce['ece'], ce['mce'], ce['oce'], ce['gme']
+    ece, mce, ice, ovc, gme = ce['ece'], ce['mce'], ce['ice'], ce['oce'], ce['gme']
 
     def log_write(line, endline='\n'):
         print("\t" + line, flush=True)
@@ -55,8 +91,8 @@ def to_console(results_dict, out_dir):
     log_write('BITS    %.4f' % (results_dict['test_metrics']['bits']))
     log_write('')
 
-    log_write(('XCE     ' + '%-10s' * 3) % ('ECE', 'MCE', 'OVC'))
-    log_write(('XCE     ' + '%-10.6f' * 3) % (ece, mce, ovc))
+    log_write(('XCE     ' + '%-10s' * 4) % ('ECE', 'MCE', 'ICE', 'OVC'))
+    log_write(('XCE     ' + '%-10.6f' * 4) % (ece, mce, ice, ovc))
     log_write('XCE GM  %.6f' % (21.5443 * gme))
     log_write('')
 

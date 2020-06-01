@@ -153,18 +153,37 @@ def test(args):
     inn.cuda()
 
     print('>> Loading weights')
+    # first, try to load the model with averaged batch norms.
+    # if not, average out the batch norms and re-save it.
     try:
-        inn.load(model_fname)
+        try:
+            inn.load(model_fname[:-3] + '.avg.pt')
+        except FileNotFoundError:
+            # use the first ensemble member if this is an ensemble model
+            inn.load(model_fname[:-3] + '.00.avg.pt')
     except FileNotFoundError:
-        # use the first ensemble member if this is an ensemble model
-        inn.load(model_fname[:-3] + '.00.pt')
+        try:
+            inn.load(model_fname)
+        except FileNotFoundError:
+            # use the first ensemble member if this is an ensemble model
+            inn.load(model_fname[:-3] + '.00.pt')
 
-    print('>> Averaging BatchNorm')
-    if vib_model:
-        average_batch_norm_vib(inn, dataset, int(args['evaluation']['train_set_oversampling']))
-    else:
-        average_batch_norm(inn, dataset, int(args['evaluation']['train_set_oversampling']))
-    inn.eval()
+        print('>> Averaging BatchNorm')
+        if vib_model:
+            average_batch_norm_vib(inn, dataset, int(args['evaluation']['train_set_oversampling']))
+        else:
+            average_batch_norm(inn, dataset, int(args['evaluation']['train_set_oversampling']))
+        inn.eval()
+
+        try:
+            for k in list(inn.inn._buffers.keys()):
+                if 'tmp_var' in k:
+                    del inn.inn._buffers[k]
+        except AttributeError:
+            # Feed-forward nets dont have the wierd FrEIA problems, skip
+            pass
+
+        inn.save(model_fname[:-3] + '.avg.pt')
 
 
     print('>> Determining test accuracy')
@@ -176,8 +195,9 @@ def test(args):
     ece, mce, ice, ovc = calibration_curve(inn, dataset)
     results_dict['calib_err'] = {'ece': float(100. * ece),
                                  'mce': float(100. * mce),
+                                 'ice': float(100. * ice),
                                  'oce': float(ovc),
-                                 'gme': float(21.5443 * (ece*mce*max(1,ovc))**0.333333333)}
+                                 'gme': float(100. * (ece*mce*ice)**0.333333333)}
 
     if not vib_model and not inn.feed_forward:
         print('>> Plotting generated samples')
@@ -217,4 +237,9 @@ def test(args):
     print('>> Generating data output files')
     output.to_json(results_dict, output_dir)
     output.to_console(results_dict, output_dir)
-    output.to_latex_table_row(results_dict, output_dir, name=args['checkpoints']['base_name'])
+    output.to_latex_table_row(results_dict, output_dir,
+                              name=args['checkpoints']['base_name'],
+                              italic_ood=vib_model,
+                              blank_ood=(inn.feed_forward or inn.feed_forward_revnet),
+                              italic_entrop=eval(args['ablations']['class_NLL']),
+                              blank_classif=(eval(args['training']['beta_IB']) == 0))

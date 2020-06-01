@@ -237,7 +237,8 @@ class WrapperVIB(ResnetClassifier):
             n_classes = 10
         super().__init__(args, classes=n_classes)
         self.args = args
-        self.feed_forward = False
+        self.feed_forward = True
+        self.feed_forward_revnet = False
 
         self.trainable_params = list(self.parameters())
         self.trainable_params = list(filter(lambda p: p.requires_grad, self.trainable_params))

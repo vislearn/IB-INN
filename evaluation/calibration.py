@@ -68,7 +68,7 @@ def calibration_curve(model, data):
     plt.tight_layout()
 
     # Compute 'overconfidence'. might be better indicator than ECE, but not widely used
-    overconfidence_thresh = 0.5 / 100.
+    overconfidence_thresh = 0.3 / 100.
     confident_pred = (max_pred > (1 - overconfidence_thresh))
 
     # 'expected calibration error', see weinberger paper on calibration
