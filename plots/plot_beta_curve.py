@@ -1,32 +1,47 @@
+import glob
+import json
+import re
+
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-data_ibinn = np.loadtxt('./beta_curves/ibinn_cifar10.txt').T
-data_vib = np.loadtxt('./beta_curves/vib_cifar10.txt').T
-
-cols = {}
-for i, c in enumerate(['beta', 'acc', 'acc_err', 'ece', 'mce', 'oce', 'xce', 'xce_o', 'auc1', 'auc2',
-                       'auc3', 'auc4', 'auc_err1', 'auc_err2', 'auc_err3', 'auc_err4', 'ent1', 'ent2',
-                       'ent3', 'ent4', 'auc_gm', 'ent_gm']):
-    cols[c] = i
-
 models = ['ibinn', 'vib']
 
-curves = {'ibinn': data_ibinn,
-          'vib':data_vib}
+patterns = {'ibinn': ['output/beta_*/results.json'],
+            'vib':   ['output/vib_beta_?.????/results.json',
+                      'output/vib_beta_??.????/results.json']}
+
+curves = {'ibinn':[],
+          'vib': []}
+
+for mod in models:
+    for pat in  patterns[mod]:
+        for f in glob.glob(pat):
+            results = json.load(open(f))
+            m = re.search('[0-9.]+', f)
+            results['beta'] = float(m.group(0))
+
+            curves[mod].append(results)
+    curves[mod].sort(key = (lambda d: d['beta']))
+    print(mod, len(curves[mod]))
+
+# these models did not converge:
+# (constant 10% acc)
+curves['vib'] = curves['vib'][3:]
+
+beta_axis = {m : [c['beta'] for c in curves[m]] for m in models}
+beta_log_axis = {m: np.log10(beta_axis[m]) for m in models}
+
 line_types = {'ibinn': '-',
               'vib': ':'}
-colors = {'ibinn': ['royalblue', 'forestgreen', 'darkorange', 'royalblue','royalblue','royalblue'],
-          'vib': ['royalblue', 'forestgreen', 'darkorange', 'royalblue','royalblue','royalblue']}
+
 alphas = {'ibinn':1., 'vib':0.65}
 model_labels = {'ibinn': 'IB-INN', 'vib': 'VIB'}
 
 beta_ticks = np.linspace(-1.5, 1.5, 5)
 beta_labels = [('%.5f' % (10**b))[:4] for b in beta_ticks]
-#beta_ticks = np.sort(np.array(list(set(data_ibinn[0]).union(set(data_vib[0])))+[50,50,50]))[::4]
-#beta_ticks = np.log10(beta_ticks)
 
 plt.figure(figsize=(14, 3.3))
 plots_h = 1
@@ -34,71 +49,58 @@ plots_w = 4
 
 titles = ['Classification error ($\\downarrow$)',
           'Geom. mean of calibration errors ($\\downarrow$)',
-          'OoD pred. entropy ($\\uparrow$)',
-          'OoD sep. RGB rotation ($\\uparrow$)',
-          'OoD sep. Drawings ($\\uparrow$)',
-          'OoD sep. Noisy CIFAR ($\\uparrow$)']
+          'Incr. OoD pred. entropy ($\\uparrow$)',
+          'OoD detection score ($\\uparrow$)',
+          ]
 
-for i, plot in enumerate(['acc_err', 'xce', 'ent4']):
+def get_curve(model, category, entry):
+    return (beta_log_axis[model],
+            np.array([c[category][entry] for c in curves[model]]))
+
+def subplot_init(i):
     ax = plt.subplot(plots_h,plots_w,i+1)
     ax.set_title(titles[i])
+    plt.xlim(np.log10(0.02), np.log10(55))
     plt.xticks(beta_ticks, beta_labels)
-    #plt.xlabel('$\\tilde \\beta$')
-    if i == 1:
-        plt.yticks(np.arange(7), ['%.1f' % e for e in np.arange(7)])
-
-    for model in models:
-        data = curves[model]
-        beta = data[cols['beta']]
-        logbeta = np.log10(beta)
-
-        if i == 2 and model == 'ibinn':
-            label = 'ImageNet'
-        else:
-            label = model_labels[model]
-
-        plt.plot(logbeta, data[cols[plot]],
-                 line_types[model], color=colors[model][i], alpha=alphas[model],
-                 label=label)
-
-        if i == 2 and model == 'ibinn':
-            plt.legend()
-
-    if i == 0:
-        plt.legend()
-
-
     plt.grid(True, alpha=0.45)
-    plt.xlim(np.log10(0.02), np.log10(50))
 
-ax = plt.subplot(plots_h, plots_w, 4)
-ax.set_title('OoD detection score ($\\uparrow$)')
-auc_labels = {'auc1': 'RGB rot.',
-              'auc2':'QuickDraw',
-              'auc3':'Noisy',
-              'auc4': 'ImageNet'}
-
-auc_colors = {'auc1': 'lightcoral',
-              'auc2':'maroon',
-              'auc3':'indianred'}
-
-auc_linetypes = {'auc1': '-',
-                 'auc2':'-.',
-                 'auc3':'--'}
-
-beta = data_ibinn[cols['beta']]
-logbeta = np.log10(beta)
-
-for auc in ['auc1', 'auc3', 'auc2']:
-    plt.plot(logbeta, data_ibinn[cols[auc]],
-              auc_linetypes[auc],
-             color=auc_colors[auc],
-             label=auc_labels[auc])
+subplot_init(0)
+for m in models:
+    b, a = get_curve(m, 'test_metrics', 'acc')
+    a = 100. - a
+    plt.plot(b, a, line_types[m], alpha=alphas[m], color='royalblue', label=model_labels[m])
 plt.legend()
-plt.grid(True, alpha=0.45)
-plt.xlim(np.log10(0.02), np.log10(50))
-plt.xticks(beta_ticks, beta_labels)
-#plt.xlabel('$\\tilde \\beta$')
+
+subplot_init(1)
+for m in models:
+    b, a = get_curve(m, 'calib_err', 'gme')
+    plt.plot(b, a, line_types[m], alpha=alphas[m], color='darkorange', label=model_labels[m])
+plt.legend()
+
+subplot_init(2)
+                #["#173a1e","#1e5226","#1e661e","#3d7f2f"],
+for data, label, color, linetype in zip(['rot_rgb', 'noisy', 'quickdraw', 'imagenet'],
+                                        ['RGB-rot.', 'Noise', 'QuickDraw', 'ImageNet'],
+                                        ["#4c0404","#911818","#cb4343","#e28d8d"],
+                                        ['solid', (0,(3,1)), (0,(3,1,1,1)), (0, (7,2))]
+                               ):
+    b, a = get_curve('ibinn', 'ood_d_ent', data)
+    plt.plot(b, a, label=label, color=color, linestyle=linetype)
+
+plt.legend()
+plt.ylim(0, 0.7)
+
+subplot_init(3)
+for data, label, color, linetype in zip(['rot_rgb', 'noisy', 'quickdraw', 'imagenet'],
+                                        ['RGB-rot.', 'Noise', 'QuickDraw', 'ImageNet'],
+                                        ["#0a3d0a","#1b791b","#52b040","#84de6e"],
+                                        ['solid', (0,(3,1)), (0,(3,1,1,1)), (0, (7,2))]
+                               ):
+
+    b, a = get_curve('ibinn', 'ood_tt', data)
+    plt.plot(b, 100. * a, label=label, color=color, linestyle=linetype)
+plt.ylim(50, 100)
+plt.legend()
 
 plt.tight_layout(w_pad = -2)
-plt.savefig('./figures/beta.pdf')
+plt.savefig('./figures/beta_new.pdf')

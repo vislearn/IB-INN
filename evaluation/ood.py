@@ -63,7 +63,7 @@ def outlier_detection(inn_model, data, args, test_set=False):
     in_distrib_data = (data.test_loader if test_set else [(data.val_x, torch.argmax(data.val_y, dim=1))])
 
     generators = [
-                      #(data.test_loader, 'CIFAR10_Test'),
+                      #(data.test_loader, 'test'),
                       (ood_datasets.cifar.cifar_rgb_rotation(inn_model.args, 0.35), 'rot_rgb'),
                       (ood_datasets.quickdraw.quickdraw_colored(inn_model.args), 'quickdraw'),
                       (ood_datasets.cifar.cifar_noise(inn_model.args, 0.015), 'noisy'),
@@ -73,10 +73,11 @@ def outlier_detection(inn_model, data, args, test_set=False):
 
     for gen,label in generators:
         print(f'>> Computing OoD score for {label}')
-        scores_all[label], entrop_all[label] = collect_scores(gen)
-        entrop_all[label] = np.mean(entrop_all[label])
+        scores_all[label], ent = collect_scores(gen)
+        entrop_all[label] = np.mean(ent)
 
     scores_ID, entrop_ID = collect_scores(in_distrib_data)#, oversample=int(args['evaluation']['train_set_oversampling']))
+    entrop_ID = np.mean(entrop_ID)
     quantiles_ID = np.quantile(scores_ID, quantile_steps)
     typical_ID = np.mean(scores_ID)
     typicality_scores_ID = np.abs(scores_ID - typical_ID)
@@ -123,15 +124,17 @@ def outlier_detection(inn_model, data, args, test_set=False):
     aucs_one_tailed = {}
     aucs_two_tailed = {}
     aucs_typicality = {}
+    delta_entropy = {}
     for label, score in scores_all.items():
         aucs_one_tailed[label] = auc(score, scores_ID, label)
         aucs_two_tailed[label] = auc_quantiles(score, quantiles_ID, quantile_steps)
         aucs_typicality[label] = auc(np.abs(score - typical_ID), typicality_scores_ID)
+        delta_entropy[label] = entrop_all[label] - entrop_ID
 
     plt.figure(fig_hist.number)
     plt.legend()
     plt.figure(fig_roc.number)
     plt.legend()
 
-    return aucs_one_tailed, aucs_two_tailed, aucs_typicality, entrop_all
+    return aucs_one_tailed, aucs_two_tailed, aucs_typicality, entrop_all, delta_entropy
 

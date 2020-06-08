@@ -28,7 +28,7 @@ def to_latex_table_row(results_dict, out_dir, name="",
         outfile.write(("{:>14.2f} &" * 4 + "\n").format(ce['gme'], ce['ece'], ce['mce'], ce['ice']))
 
     ood = results_dict['ood_tt']
-    ent = results_dict['ood_ent']
+    ent = results_dict['ood_d_ent']
 
     if italic_entrop:
         se_m = '( \\it {:.2f}'.format(ent['ari_mean'])
@@ -96,16 +96,18 @@ def to_console(results_dict, out_dir):
     log_write('XCE GM  %.6f' % (21.5443 * gme))
     log_write('')
 
-    for i, test_type in enumerate(['ood_ent', 'ood_1t', 'ood_2t', 'ood_tt']):
+    for i, test_type in enumerate(['ood_ent', 'ood_d_ent', 'ood_1t', 'ood_2t', 'ood_tt']):
         aucs = results_dict[test_type]
         labels_list = list(aucs.keys())
 
         if i == 0:
-            log_write('DATASET  ' + ''.join(['%-16s' % (l) for l in labels_list]))
+            log_write('DATASET    ' + ''.join(['%-16s' % (l) for l in labels_list]))
+
+        if '_ent' in test_type:
             mult = 1.
         else:
             mult = 100.
 
-        log_write('%-7s  ' % (test_type.upper()) + ''.join(['%-16.4f' % (mult * aucs[l]) for l in labels_list]))
+        log_write('%-9s  ' % (test_type.upper()) + ''.join(['%-16.4f' % (mult * aucs[l]) for l in labels_list]))
 
     logfile.close()

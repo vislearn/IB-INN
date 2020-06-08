@@ -184,7 +184,7 @@ def test(args):
             pass
 
         inn.save(model_fname[:-3] + '.avg.pt')
-
+    inn.eval()
 
     print('>> Determining test accuracy')
     # the numbers are np.float32, and jason won't eat it.
@@ -212,10 +212,10 @@ def test(args):
 
     if do_ood:
         print('>> Determining outlier AUC')
-        aucs_1t, aucs_2t, aucs_tt, entrop = outlier_detection(inn, dataset, args, test_set=True)
+        aucs_1t, aucs_2t, aucs_tt, entrop, delta_entrop = outlier_detection(inn, dataset, args, test_set=True)
 
-        for aucs, test_type in zip([aucs_1t, aucs_2t, aucs_tt, entrop],
-                                   ['ood_1t', 'ood_2t', 'ood_tt', 'ood_ent']):
+        for aucs, test_type in zip([aucs_1t, aucs_2t, aucs_tt, entrop, delta_entrop],
+                                   ['ood_1t', 'ood_2t', 'ood_tt', 'ood_ent', 'ood_d_ent']):
             m = len(list(aucs.keys()))
             geo_mean = np.prod(list(aucs.values())) ** (1./m)
             ari_mean = np.mean(list(aucs.values()))
