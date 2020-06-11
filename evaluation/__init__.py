@@ -26,11 +26,18 @@ def average_batch_norm(model, data, N_epochs=5):
         for module in node.children():
             for subnet in module.children():
                 for layer in subnet.children():
+                    if type(layer) == torch.nn.Sequential:
+                        for l in layer.children():
+                            if type(l) == torch.nn.BatchNorm2d:
+                                l.reset_running_stats()
+                                l.momentum = None
+                                instance_counter += 1
                     if type(layer) == torch.nn.BatchNorm2d:
                         layer.reset_running_stats()
                         layer.momentum = None
                         instance_counter += 1
 
+    assert instance_counter > 0, "No batch norm layers found. Is the model constructed differently?"
     model.train()
     progress_bar = tqdm(total=N_epochs * len(data.train_loader),
                         ncols=120, ascii=True, mininterval=1.)
@@ -239,7 +246,8 @@ def test(args):
     output.to_console(results_dict, output_dir)
     output.to_latex_table_row(results_dict, output_dir,
                               name=args['checkpoints']['base_name'],
-                              italic_ood=vib_model,
+                              italic_ood=False,
                               blank_ood=(inn.feed_forward or inn.feed_forward_revnet),
-                              italic_entrop=eval(args['ablations']['class_NLL']),
+                              italic_entrop=False,
+                              blank_bitspdim=(inn.feed_forward or inn.feed_forward_revnet),
                               blank_classif=(eval(args['training']['beta_IB']) == 0))

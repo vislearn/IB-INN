@@ -6,7 +6,8 @@ def to_latex_table_row(results_dict, out_dir, name="",
                        italic_ood=False,
                        blank_ood=False,
                        italic_entrop=False,
-                       blank_classif=False):
+                       blank_classif=False,
+                       blank_bitspdim=False):
 
     name = name.replace("_", " ")
     outfile = open(join(out_dir, 'results.tex'), 'w')
@@ -14,12 +15,16 @@ def to_latex_table_row(results_dict, out_dir, name="",
 
     outfile.write(" & {:>14s} &\n".format(name))
     if blank_classif:
-        outfile.write("{:>14s}  {:>14s} &{:>14.2f} &\n".format(' ', '--',
-                                                              results_dict['test_metrics']['bits']))
+        acc_str = '--'
     else:
-        outfile.write("{:>14s}  {:>14.2f} &{:>14.2f} &\n".format(' ',
-                                                              100. - results_dict['test_metrics']['acc'],
-                                                              results_dict['test_metrics']['bits']))
+        acc_str = '{:.2f}'.format(100. - results_dict['test_metrics']['acc'])
+
+    if blank_bitspdim:
+        bits_str = '--'
+    else:
+        bits_str = '{:.2f}'.format(results_dict['test_metrics']['bits'])
+
+    outfile.write("{:>14s}  {:>14s} &{:>14s} &\n".format(' ', acc_str, bits_str))
 
     ce = results_dict['calib_err']
     if blank_classif:
