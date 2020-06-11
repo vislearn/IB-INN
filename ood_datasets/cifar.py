@@ -76,9 +76,16 @@ class Dataset():
         self.dims = (3 + channel_pad, 32, 32)
         self.channels = 3 + channel_pad
 
-        data_dir = 'cifar_data'
-        self.n_classes = 10
-        dataset_class = torchvision.datasets.CIFAR10
+        if self.dataset == 'CIFAR10':
+            data_dir = 'cifar_data'
+            self.n_classes = 10
+            dataset_class = torchvision.datasets.CIFAR10
+        elif self.dataset == 'CIFAR100':
+            data_dir = 'cifar100_data'
+            self.n_classes = 100
+            dataset_class = torchvision.datasets.CIFAR100
+        else:
+            raise ValueError("Only CIFAR10 and CIFAR100 supported for OoD datasets")
 
         self.test_data = dataset_class(data_dir, train=False, download=True,
                                                transform=T.Compose(extra_transforms + [self.test_augmentor]))
