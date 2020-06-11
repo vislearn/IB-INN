@@ -1,6 +1,9 @@
 output/*
+figures/*
 **/__pycache__
 __pycache__
 ood_datasets/*.npy
 cifar_data
+cifar100_data
+mnist_data
 svhn_data
