@@ -1,7 +1,7 @@
-"Exact Information Bottleneck with Invertible Neural Networks: Getting the Best of Discriminative and Generative Modeling" (2020)
+"Training Normalizing Flows with the Information Bottleneck for Competitive Generative Classification" (2020)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-https://arxiv.org/abs/1907.02392
+https://arxiv.org/abs/2001.06448
 
 USAGE
 ^^^^^^^^^^^^^^
