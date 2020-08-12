@@ -45,19 +45,21 @@ class LabelAugmentor():
         return int(self.mapping[l])
 
 class Augmentor():
-    def __init__(self, deterministic, noise_amplitde, beta, gamma, tanh, ch_pad=0, ch_pad_sig=0):
-        self.deterministic = deterministic
-        self.sigma_noise = noise_amplitde
-        self.beta = beta
-        self.gamma = gamma
-        self.tanh = tanh
-        self.ch_pad = ch_pad
-        self.ch_pad_sig = ch_pad_sig
+    def __init__(self, deterministic, noise_amplitde, uniform_dequantize, beta, gamma, tanh, ch_pad=0, ch_pad_sig=0):
+        self.deterministic      = deterministic
+        self.sigma_noise        = noise_amplitde
+        self.uniform_dequantize = uniform_dequantize
+        self.beta               = beta
+        self.gamma              = gamma
+        self.tanh               = tanh
+        self.ch_pad             = ch_pad
+        self.ch_pad_sig         = ch_pad_sig
         assert ch_pad_sig <= 1., 'Padding sigma must be between 0 and 1.'
 
     def __call__(self, x):
         if not self.deterministic:
-            x += torch.rand_like(x) / 256.
+            if self.uniform_dequantize:
+                x += torch.rand_like(x) / 256.
             if self.sigma_noise > 0.:
                 x += self.sigma_noise * torch.randn_like(x)
 
@@ -91,13 +93,14 @@ class Dataset():
 
     def __init__(self, args):
 
-        self.dataset = args['data']['dataset']
-        self.batch_size = int(args['data']['batch_size'])
-        tanh = eval(args['data']['tanh_augmentation'])
-        noise = float(args['data']['noise_amplitde'])
-        label_smoothing = float(args['data']['label_smoothing'])
-        channel_pad = int(args['data']['pad_noise_channels'])
-        channel_pad_sigma = float(args['data']['pad_noise_std'])
+        self.dataset      = args['data']['dataset']
+        self.batch_size   = eval(args['data']['batch_size'])
+        tanh              = eval(args['data']['tanh_augmentation'])
+        noise             = eval(args['data']['noise_amplitde'])
+        unif              = eval(args['data']['dequantize_uniform'])
+        label_smoothing   = eval(args['data']['label_smoothing'])
+        channel_pad       = eval(args['data']['pad_noise_channels'])
+        channel_pad_sigma = eval(args['data']['pad_noise_std'])
 
         if self.dataset == 'MNIST':
             beta = 0.5
@@ -106,8 +109,8 @@ class Dataset():
             beta = torch.Tensor((0.4914, 0.4822, 0.4465)).view(-1, 1, 1)
             gamma = 1. / torch.Tensor((0.247, 0.243, 0.261)).view(-1, 1, 1)
 
-        self.train_augmentor = Augmentor(False, noise, beta, gamma, tanh, channel_pad, channel_pad_sigma)
-        self.test_augmentor =  Augmentor(True,  0.,    beta, gamma, tanh, channel_pad, channel_pad_sigma)
+        self.train_augmentor = Augmentor(False, noise, unif, beta, gamma, tanh, channel_pad, channel_pad_sigma)
+        self.test_augmentor =  Augmentor(True,  0.,    unif, beta, gamma, tanh, channel_pad, channel_pad_sigma)
         self.transform = T.Compose([T.ToTensor(), self.test_augmentor])
 
         if self.dataset == 'MNIST':
