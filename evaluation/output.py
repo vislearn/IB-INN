@@ -17,12 +17,12 @@ def to_latex_table_row(results_dict, out_dir, name="",
     if blank_classif:
         acc_str = '--'
     else:
-        acc_str = '{:.2f}'.format(100. - results_dict['test_metrics']['acc'])
+        acc_str = '{:.2f}'.format(100. - results_dict['test_metrics']['accuracy'])
 
     if blank_bitspdim:
         bits_str = '--'
     else:
-        bits_str = '{:.2f}'.format(results_dict['test_metrics']['bits'])
+        bits_str = '{:.2f}'.format(results_dict['test_metrics']['bits_per_dim'])
 
     outfile.write("{:>14s}  {:>14s} &{:>14s} &\n".format(' ', acc_str, bits_str))
 
@@ -92,8 +92,8 @@ def to_console(results_dict, out_dir):
         logfile.write(line)
         logfile.write(endline)
 
-    log_write('ACC     %.4f' % (results_dict['test_metrics']['acc']))
-    log_write('BITS    %.4f' % (results_dict['test_metrics']['bits']))
+    log_write('ACC     %.4f' % (results_dict['test_metrics']['accuracy']))
+    log_write('BITS    %.4f' % (results_dict['test_metrics']['bits_per_dim']))
     log_write('')
 
     log_write(('XCE     ' + '%-10s' * 4) % ('ECE', 'MCE', 'ICE', 'OVC'))

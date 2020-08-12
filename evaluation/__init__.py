@@ -194,9 +194,9 @@ def test(args):
     inn.eval()
 
     print('>> Determining test accuracy')
-    # the numbers are np.float32, and jason won't eat it.
-    acc, bits_per_dim = test_metrics(inn, dataset)
-    results_dict = {'test_metrics': {'acc': float(100. * acc), 'bits': float(bits_per_dim)}}
+    metrics = test_metrics(inn, dataset, args)
+    # the numbers are np.float32, and json won't take it if not cast to float() explicitly.
+    results_dict = {'test_metrics': metrics}
 
     print('>> Plotting calibration curve')
     ece, mce, ice, ovc = calibration_curve(inn, dataset)

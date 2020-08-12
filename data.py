@@ -96,7 +96,7 @@ class Dataset():
         self.dataset      = args['data']['dataset']
         self.batch_size   = eval(args['data']['batch_size'])
         tanh              = eval(args['data']['tanh_augmentation'])
-        noise             = eval(args['data']['noise_amplitde'])
+        self.sigma        = eval(args['data']['noise_amplitde'])
         unif              = eval(args['data']['dequantize_uniform'])
         label_smoothing   = eval(args['data']['label_smoothing'])
         channel_pad       = eval(args['data']['pad_noise_channels'])
@@ -109,8 +109,8 @@ class Dataset():
             beta = torch.Tensor((0.4914, 0.4822, 0.4465)).view(-1, 1, 1)
             gamma = 1. / torch.Tensor((0.247, 0.243, 0.261)).view(-1, 1, 1)
 
-        self.train_augmentor = Augmentor(False, noise, unif, beta, gamma, tanh, channel_pad, channel_pad_sigma)
-        self.test_augmentor =  Augmentor(True,  0.,    unif, beta, gamma, tanh, channel_pad, channel_pad_sigma)
+        self.train_augmentor = Augmentor(False, self.sigma, unif, beta, gamma, tanh, channel_pad, channel_pad_sigma)
+        self.test_augmentor =  Augmentor(True,  0.,         unif, beta, gamma, tanh, channel_pad, channel_pad_sigma)
         self.transform = T.Compose([T.ToTensor(), self.test_augmentor])
 
         if self.dataset == 'MNIST':
