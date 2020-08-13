@@ -41,7 +41,7 @@ def outlier_detection(inn_model, data, args, test_set=False):
                     ll_joint = []
                     for inn in inn_ensemble:
                         losses = inn(x, y=None, loss_mean=False)
-                        ll_joint.append(losses['nll_joint_tr'].cpu().numpy())
+                        ll_joint.append(losses['L_x_tr'].cpu().numpy())
                     entrop = torch.sum(- torch.softmax(losses['logits_tr'], dim=1)
                                        * torch.log_softmax(losses['logits_tr'], dim=1), dim=1).cpu().numpy()
 
@@ -76,7 +76,7 @@ def outlier_detection(inn_model, data, args, test_set=False):
         scores_all[label], ent = collect_scores(gen)
         entrop_all[label] = np.mean(ent)
 
-    scores_ID, entrop_ID = collect_scores(in_distrib_data)#, oversample=int(args['evaluation']['train_set_oversampling']))
+    scores_ID, entrop_ID = collect_scores(in_distrib_data, oversample=int(args['evaluation']['train_set_oversampling']))
     entrop_ID = np.mean(entrop_ID)
     quantiles_ID = np.quantile(scores_ID, quantile_steps)
     typical_ID = np.mean(scores_ID)

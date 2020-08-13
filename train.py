@@ -13,22 +13,23 @@ import evaluation
 
 def train(args):
 
-    N_epochs = int(args['training']['n_epochs'])
-    beta = float(args['training']['beta_IB'])
-    train_nll = bool(not eval(args['ablations']['no_NLL_term']))
-    train_class_nll = eval(args['ablations']['class_NLL'])
-    label_smoothing = float(args['data']['label_smoothing'])
-    grad_clip = float(args['training']['clip_grad_norm'])
-    train_vib = eval(args['ablations']['vib'])
+    N_epochs            = eval(args['training']['n_epochs'])
+    beta                = eval(args['training']['beta_IB'])
+    train_nll           = bool(not eval(args['ablations']['no_NLL_term']))
+    train_class_nll     = eval(args['ablations']['class_NLL'])
+    label_smoothing     = eval(args['data']['label_smoothing'])
+    grad_clip           = eval(args['training']['clip_grad_norm'])
+    train_vib           = eval(args['ablations']['vib'])
 
-    interval_log = int(args['checkpoints']['interval_log'])
-    interval_checkpoint = int(args['checkpoints']['interval_checkpoint'])
-    interval_figure = int(args['checkpoints']['interval_figure'])
-    save_on_crash = eval(args['checkpoints']['checkpoint_when_crash'])
+    interval_log        = eval(args['checkpoints']['interval_log'])
+    interval_checkpoint = eval(args['checkpoints']['interval_checkpoint'])
+    interval_figure     = eval(args['checkpoints']['interval_figure'])
+    save_on_crash       = eval(args['checkpoints']['checkpoint_when_crash'])
 
-    output_dir = args['checkpoints']['output_dir']
-    resume = args['checkpoints']['resume_checkpoint']
-    ensemble_index = eval(args['checkpoints']['ensemble_index'])
+    output_dir          = args['checkpoints']['output_dir']
+    resume              = args['checkpoints']['resume_checkpoint']
+    ensemble_index      = eval(args['checkpoints']['ensemble_index'])
+
     if ensemble_index is None:
         ensemble_str = ''
     else:
@@ -50,12 +51,10 @@ def train(args):
         logfile.write(endline)
 
     plot_columns = ['time', 'epoch', 'iteration',
-                    'nll_joint_tr',
-                    'nll_joint_val',
-                    #'nll_class_tr',
-                    #'nll_class_val',
-                    'cat_ce_tr',
-                    'cat_ce_val',
+                    'L_x_tr',
+                    'L_x_val',
+                    'L_y_tr',
+                    'L_y_val',
                     'acc_tr',
                     'acc_val',
                     'delta_mu_val']
@@ -102,9 +101,9 @@ def train(args):
                 losses = inn(x, y)
 
                 if train_class_nll:
-                    loss = 2. * losses['nll_class_tr']
+                    loss = 2. * losses['L_cNLL_tr']
                 else:
-                    loss = beta_x * losses['nll_joint_tr'] + beta_y * losses['cat_ce_tr']
+                    loss = beta_x * losses['L_x_tr'] - beta_y * losses['L_y_tr']
                 loss.backward()
 
                 torch.nn.utils.clip_grad_norm_(inn.trainable_params, grad_clip)
@@ -139,7 +138,7 @@ def train(args):
                     running_avg = {l: [] for l in train_loss_names}
 
             sched.step()
-            if i_epoch > 2 and (val_losses['nll_joint_val'].item() > 1e5 or not np.isfinite(val_losses['nll_joint_val'].item())):
+            if i_epoch > 2 and (val_losses['L_x_val'].item() > 1e5 or not np.isfinite(val_losses['L_x_val'].item())):
                 if high_loss:
                     raise RuntimeError("loss is astronomical")
                 else:

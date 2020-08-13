@@ -14,11 +14,11 @@ class GenerativeClassifier(nn.Module):
         super().__init__()
         self.args = args
 
-        init_latent_scale = float(self.args['model']['mu_init'])
-        weight_init = float(self.args['model']['weight_init'])
-        self.dataset = self.args['data']['dataset']
-        self.ch_pad = int(self.args['data']['pad_noise_channels'])
-        self.feed_forward = eval(self.args['ablations']['feed_forward_resnet'])
+        init_latent_scale        = eval(self.args['model']['mu_init'])
+        weight_init              = eval(self.args['model']['weight_init'])
+        self.dataset             = self.args['data']['dataset']
+        self.ch_pad              = eval(self.args['data']['pad_noise_channels'])
+        self.feed_forward        = eval(self.args['ablations']['feed_forward_resnet'])
         self.feed_forward_revnet = eval(self.args['ablations']['feed_forward_irevnet'])
 
         if self.dataset == 'MNIST':
@@ -148,13 +148,13 @@ class GenerativeClassifier(nn.Module):
         else:
             zz = self.cluster_distances(z)
 
-        losses = {'nll_joint_tr': (- torch.logsumexp(- 0.5 * zz + log_wy, dim=1) - jac ) / self.ndim_tot,
-                  'logits_tr':    - 0.5 * zz}
+        losses = {'L_x_tr':    (- torch.logsumexp(- 0.5 * zz + log_wy, dim=1) - jac ) / self.ndim_tot,
+                  'logits_tr': - 0.5 * zz}
 
         log_wy = log_wy.detach()
         if y is not None:
-            losses['nll_class_tr'] = (0.5 * torch.sum(zz * y.round(), dim=1) - jac) / self.ndim_tot
-            losses['cat_ce_tr'] = - torch.sum((torch.log_softmax(- 0.5 * zz + log_wy, dim=1) - log_wy) * y, dim=1)
+            losses['L_cNLL_tr'] = (0.5 * torch.sum(zz * y.round(), dim=1) - jac) / self.ndim_tot
+            losses['L_y_tr'] = torch.sum((torch.log_softmax(- 0.5 * zz + log_wy, dim=1) - log_wy) * y, dim=1)
             losses['acc_tr'] = torch.mean((torch.max(y, dim=1)[1]
                                         == torch.max(losses['logits_tr'].detach(), dim=1)[1]).float())
 
@@ -168,15 +168,15 @@ class GenerativeClassifier(nn.Module):
         logits = self.inn(x)
 
         losses = {'logits_tr': logits,
-                  'nll_joint_tr': torch.zeros_like(logits[:,0])}
+                  'L_x_tr': torch.zeros_like(logits[:,0])}
 
         if y is not None:
-            ce = - torch.sum(torch.log_softmax(logits, dim=1) * y, dim=1)
+            ly =  torch.sum(torch.log_softmax(logits, dim=1) * y, dim=1)
             acc = torch.mean((torch.max(y, dim=1)[1]
                            == torch.max(logits.detach(), dim=1)[1]).float())
-            losses['cat_ce_tr'] = ce
+            losses['L_y_tr'] = ly
             losses['acc_tr'] = acc
-            losses['nll_class_tr'] = torch.zeros_like(ce)
+            losses['L_cNLL_tr'] = torch.zeros_like(ly)
 
         if loss_mean:
             for k,v in losses.items():
@@ -191,23 +191,23 @@ class GenerativeClassifier(nn.Module):
 
         with torch.no_grad():
             losses = self.forward(x, y, loss_mean=False)
-            nll_joint, nll_class, cat_ce, logits, acc = (losses['nll_joint_tr'].mean(),
-                                                         losses['nll_class_tr'].mean(),
-                                                         losses['cat_ce_tr'].mean(),
-                                                         losses['logits_tr'],
-                                                         losses['acc_tr'])
+            l_x, class_nll, l_y, logits, acc = (losses['L_x_tr'].mean(),
+                                                losses['L_cNLL_tr'].mean(),
+                                                losses['L_y_tr'].mean(),
+                                                losses['logits_tr'],
+                                                losses['acc_tr'])
 
             mu_dist = torch.mean(torch.sqrt(self.mu_pairwise_dist()))
 
         if is_train:
             self.inn.train()
 
-        return {'nll_joint_val': nll_joint,
-                'nll_class_val': nll_class,
-                'logits_val':    logits,
-                'cat_ce_val':    cat_ce,
-                'acc_val':       acc,
-                'delta_mu_val':  mu_dist}
+        return {'L_x_val':      l_x,
+                'L_cNLL_val':   class_nll,
+                'logits_val':   logits,
+                'L_y_val':      l_y,
+                'acc_val':      acc,
+                'delta_mu_val': mu_dist}
 
     def reset_mu(self, dataset):
         mu = torch.zeros(1, self.n_classes, self.ndim_tot).cuda()
@@ -233,10 +233,10 @@ class GenerativeClassifier(nn.Module):
         return self.inn(z, rev=True)
 
     def save(self, fname):
-        torch.save({'inn':self.inn.state_dict(),
-                    'mu':self.mu,
-                    'phi':self.phi,
-                    'opt':self.optimizer.state_dict()}, fname)
+        torch.save({'inn': self.inn.state_dict(),
+                    'mu':  self.mu,
+                    'phi': self.phi,
+                    'opt': self.optimizer.state_dict()}, fname)
 
     def load(self, fname):
         data = torch.load(fname)

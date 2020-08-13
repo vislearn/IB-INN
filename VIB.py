@@ -273,14 +273,14 @@ class WrapperVIB(ResnetClassifier):
         info_loss /= 3072
 
         losses = {'logits_tr': logit,
-                  'nll_joint_tr': info_loss,
-                  'nll_class_tr': 0. * info_loss.detach()}
+                  'L_x_tr': info_loss,
+                  'L_cNLL_tr': 0. * info_loss.detach()}
 
         if y is not None:
             class_loss = - (torch.log_softmax(logit, dim=1) * y).sum(1) / np.log(2.)
             acc = torch.mean((torch.max(y, dim=1)[1]
                            == torch.max(logit.detach(), dim=1)[1]).float())
-            losses['cat_ce_tr'] = class_loss
+            losses['L_y_tr'] = -class_loss
             losses['acc_tr'] = acc
 
         if loss_mean:
@@ -296,201 +296,20 @@ class WrapperVIB(ResnetClassifier):
 
         with torch.no_grad():
             losses = self.forward(x, y, loss_mean=False, z_samples=12)
-            nll_joint, nll_class, cat_ce, logits, acc = (losses['nll_joint_tr'].mean(),
-                                                         losses['nll_class_tr'].mean(),
-                                                         losses['cat_ce_tr'].mean(),
-                                                         losses['logits_tr'],
-                                                         losses['acc_tr'])
+            info_loss, class_nll, l_y, logits, acc = (losses['L_x_tr'].mean(),
+                                                      losses['L_cNLL_tr'].mean(),
+                                                      losses['L_y_tr'].mean(),
+                                                      losses['logits_tr'],
+                                                      losses['acc_tr'])
 
             mu_dist = torch.Tensor((0.,)).cuda()
 
         if is_train:
             self.train()
 
-        return {'nll_joint_val': nll_joint,
-                'nll_class_val': nll_class,
-                'logits_val':    logits,
-                'cat_ce_val':    cat_ce,
-                'acc_val':       acc,
-                'delta_mu_val':  mu_dist}
-
-args = {
-    'ablations': {   'class_nll': 'False',
-                     'feed_forward_resnet': 'False',
-                     'no_nll_term': 'False',
-                     'standard_softmax_loss': 'False'},
-    'checkpoints': {   'base_name': 'default',
-                       'checkpoint_when_crash': 'False',
-                       'ensemble_index': 'None',
-                       'global_output_folder': './output',
-                       'interval_checkpoint': '1000',
-                       'interval_figure': '200',
-                       'interval_log': '200',
-                       'live_updates': 'False',
-                       'output_dir': './output/vib',
-                       'resume_checkpoint': ''},
-    'data': {   'batch_size': '128',
-                'dataset': 'CIFAR10',
-                'label_smoothing': '0.07',
-                'noise_amplitde': '0.015',
-                'pad_noise_channels': '0',
-                'pad_noise_std': '1.0',
-                'tanh_augmentation': 'False'},
-    'evaluation': {'ensemble_members': '1'},
-    'model': {   'act_norm': '0.75',
-                 'clamp': '0.7',
-                 'conv_widths': '[16, 32, 64]',
-                 'dropout_conv': '[0., 0., 0.25]',
-                 'dropout_fc': '0.5',
-                 'fc_width': '1024',
-                 'mu_init': '5.0',
-                 'n_coupling_blocks_conv': '[8, 24, 24]',
-                 'n_coupling_blocks_fc': '1',
-                 'n_groups': '1',
-                 'weight_init': '1.0'},
-    'training': {   'adam_betas': '[0.9, 0.99]',
-                    'adam_betas_mu': '[0.95, 0.99]',
-                    'adam_betas_phi': '[0.95, 0.99]',
-                    'aggmo_betas': '[0.0, 0.9, 0.99]',
-                    'aggmo_betas_mu': '[0.0, 0.9, 0.99]',
-                    'aggmo_betas_phi': '[0.0, 0.9, 0.99]',
-                    'beta_ib': '1e-6',
-                    'clip_grad_norm': '8.',
-                    'empirical_mu': 'False',
-                    'exponential_scheduler': 'False',
-                    'lr': '0.007',
-                    'lr_burn_in': '5',
-                    'lr_mu': '0.4',
-                    'lr_phi': '1.',
-                    'n_epochs': '450',
-                    'optimizer': 'SGD',
-                    'scheduler_milestones': '[150, 250, 350]',
-                    'sgd_momentum': '0.9',
-                    'sgd_momentum_mu': '0.0',
-                    'sgd_momentum_phi': '0.8',
-                    'train_mu': 'True',
-                    'train_phi': 'False',
-                    'weight_decay': '1e-4'}}
-
-
-if __name__ == '__main__':
-    import math
-    import os
-    from data import Dataset
-
-    dataset = Dataset(args)
-    resnet = ResnetClassifier(args)
-    resnet.cuda()
-    resnet.weight_init()
-    resnet.train()
-
-    history = dict()
-    history['avg_acc'] = 0.
-    history['info_loss'] = 0.
-    history['class_loss'] = 0.
-    history['total_loss'] = 0.
-    history['epoch'] = 0
-    history['iter'] = 0
-
-    #args['training']['n_epochs'] = 10
-    args['training']['beta_ib'] = 1.
-
-    parameters = list(filter(lambda p: p.requires_grad, resnet.parameters()))
-    #optimizer = torch.optim.Adam(parameters, 1e-3, betas=(0.9, 0.999))
-    optimizer = torch.optim.SGD(parameters, 0.07, momentum=0.9)
-    sched = torch.optim.lr_scheduler.MultiStepLR(optimizer, gamma=0.1,
-                                             milestones=eval(args['training']['scheduler_milestones']))
-
-    N_epochs = int(args['training']['n_epochs'])
-    print('total epochs are', N_epochs)
-
-    beta = float(args['training']['beta_ib'])
-    print('IB-INN-beta is %.4e' % (beta))
-    beta = 1. / (beta * 3072)
-    print('VIB-beta is %.4e' % (beta))
-
-    interval_log = int(args['checkpoints']['interval_log'])
-    interval_checkpoint = int(args['checkpoints']['interval_checkpoint'])
-    interval_figure = int(args['checkpoints']['interval_figure'])
-    save_on_crash = eval(args['checkpoints']['checkpoint_when_crash'])
-
-    output_dir = args['checkpoints']['output_dir']
-    resume = args['checkpoints']['resume_checkpoint']
-    grad_clip = float(args['training']['clip_grad_norm'])
-    label_smoothing = float(args['data']['label_smoothing'])
-    os.makedirs(output_dir, exist_ok=True)
-
-    plot_columns = ['XZ', 'XY', 'acc']
-    global_iter = 0
-    from time import time
-    t_start = time()
-
-    try:
-        for i_epoch in range(N_epochs):
-            for i_batch, (x,l) in tqdm(enumerate(dataset.train_loader), total=len(dataset.train_loader), disable=True):
-
-                x, y = x.cuda(), dataset.onehot(l.cuda(), label_smoothing)
-                (mu, std), logit = resnet(x)
-
-                #class_loss = F.cross_entropy(logit, y).div(np.log(2))
-                class_loss = - (torch.log_softmax(logit, dim=1) * y).sum(1).mean() / np.log(2.)
-                info_loss = -0.5*(1 + 2*std.log() - mu.pow(2) - std.pow(2)).sum(1).mean().div(np.log(2))
-                total_loss = class_loss + beta * info_loss
-                #print('\r %-15.3f   %-15.3f   %-15.3f' %(class_loss.item(), info_loss.item(), total_loss.item()), end='')
-                if global_iter < 200:
-                    total_loss *= 0.05
-
-                optimizer.zero_grad()
-                total_loss.backward()
-                torch.nn.utils.clip_grad_norm_(parameters, grad_clip)
-                optimizer.step()
-
-                global_iter = global_iter +  1
-
-            #print()
-            sched.step()
-            val_avg_losses = {}
-            for l_name in plot_columns:
-                val_avg_losses[l_name] = []
-
-            resnet.eval()
-
-            for val_batch, (x, y) in enumerate([(dataset.val_x, dataset.val_y)]):
-                with torch.no_grad():
-                    x = x.cuda()
-                    y = y.cuda()
-
-                    (mu, std), logit = resnet(x)
-
-                    #class_loss = F.cross_entropy(logit, y).div(np.log(2))
-                    class_loss = - (torch.log_softmax(logit, dim=1) * y).sum(1).mean() / np.log(2.)
-                    info_loss = beta * (-0.5*(1+2*std.log()-mu.pow(2)-std.pow(2)).sum(1).mean().div(np.log(2)))
-
-                    prediction = F.softmax(logit, dim=1).max(1)[1]
-                    gt = y.max(1)[1]
-                    accuracy = torch.eq(prediction, gt).float().mean()
-
-                    val_avg_losses['XZ'].append(np.mean(info_loss.item()))
-                    val_avg_losses['XY'].append(np.mean(class_loss.item()))
-                    val_avg_losses['acc'].append(np.mean(accuracy.item()))
-
-            for l_name in plot_columns:
-                val_avg_losses[l_name] = np.mean(val_avg_losses[l_name])
-
-            print('%.6i\t %-16s: %.4f' % (global_iter, 'time', (time() - t_start) / 60.))
-            for l_name in plot_columns:
-                print('%.6i\t %-16s: %.4f' % (global_iter, l_name, val_avg_losses[l_name]))
-            print('---'*20)
-
-            resnet.train()
-
-            if i_epoch > 0 and (i_epoch % interval_checkpoint) == 0:
-                resnet.save(join(output_dir, f'model_{i_epoch}.pt'))
-
-    except:
-        if save_on_crash:
-            resnet.save(join(output_dir, f'model_ABORT{ensemble_str}.pt'))
-        raise
-
-    resnet.save(join(output_dir, f'model.pt'))
-
+        return {'L_x_val':      info_loss,
+                'L_cNLL_val':   class_nll,
+                'logits_val':   logits,
+                'L_y_val':      l_y,
+                'acc_val':      acc,
+                'delta_mu_val': mu_dist}
