@@ -1,7 +1,7 @@
 from . import output
 from .ood import outlier_detection
 from .calibration import calibration_curve
-from .latent_space import show_samples, show_latent_space
+from .latent_space import show_samples, show_latent_space, show_real_data
 from .test_metrics import test_metrics
 
 import os
@@ -105,51 +105,55 @@ def val_plots(fname, model, data):
 
 def test(args):
 
-    output_dir = args['checkpoints']['output_dir']
-    model_fname = os.path.join(output_dir, 'model.pt')
-    fig_fname = os.path.join(output_dir, 'figs.pdf')
+    output_dir             = args['checkpoints']['output_dir']
+    model_fname            = os.path.join(output_dir, 'model.pt')
+    fig_fname              = os.path.join(output_dir, 'figs.pdf')
 
-    do_ood = eval(args['evaluation']['ood'])
-    vib_model = eval(args['ablations']['vib'])
+    vib_model              = eval(args['ablations']['vib'])
+    eval_ood_detection     = False and eval(args['evaluation']['ood'])
+    # I put these in the config at first, but they don't really take that long:
+    eval_sample_generation = True
+    eval_calibration       = False
+    eval_test_acc          = False
+    eval_latent_pca_plot   = False
 
 
     print('>> Plotting loss curves')
     try:
-        losses = np.loadtxt(os.path.join(output_dir, 'losses.dat'),
-                        usecols = [0] + list(range(3,10)),
-                        skiprows = 1).T
-    except OSError:
         try:
+            losses = np.loadtxt(os.path.join(output_dir, 'losses.dat'),
+                            usecols = [0] + list(range(3,10)),
+                            skiprows = 1).T
+        except OSError:
             losses = np.loadtxt(os.path.join(output_dir, 'losses.00.dat'),
                         usecols = [0] + list(range(3,10)),
                         skiprows = 1).T
-        except OSError:
-            print('>> Skipping Loss Curves')
-            losses = None
 
-    if losses is not None:
-        plt.figure(figsize=(8,12))
-        plt.subplot(2,1,1)
-        plt.plot(losses[0], losses[1], '--', color='red', label='$\mathcal{L}_X$ (train)')
-        plt.plot(losses[0], losses[3], '--', color='blue', label='$\mathcal{L}_Y$ (train)')
-        plt.plot(losses[0], losses[2], color='red', label='$\mathcal{L}_X$ (val)')
-        plt.plot(losses[0], losses[4], color='blue', label='$\mathcal{L}_X$ (val)')
-        plt.grid(True)
-        plt.ylim(-5, 0)
-        plt.legend()
+        if losses is not None:
+            plt.figure(figsize=(8,12))
+            plt.subplot(2,1,1)
+            plt.plot(losses[0], losses[1], '--', color='red', label='$\mathcal{L}_X$ (train)')
+            plt.plot(losses[0], losses[3], '--', color='blue', label='$\mathcal{L}_Y$ (train)')
+            plt.plot(losses[0], losses[2], color='red', label='$\mathcal{L}_X$ (val)')
+            plt.plot(losses[0], losses[4], color='blue', label='$\mathcal{L}_X$ (val)')
+            plt.grid(True)
+            plt.ylim(-5, 0)
+            plt.legend()
 
-        plt.subplot(2,1,2)
-        plt.plot(losses[0], 100 * (1. - losses[5]), '--', color='orange', label='err (val)')
-        plt.plot(losses[0], 100 * (1. - losses[6]), color='orange', label='err (train)')
-        plt.ylim([5, 50])
-        plt.grid(True)
-        plt.legend()
-        plt.tight_layout()
+            plt.subplot(2,1,2)
+            plt.plot(losses[0], 100 * (1. - losses[5]), '--', color='orange', label='err (val)')
+            plt.plot(losses[0], 100 * (1. - losses[6]), color='orange', label='err (train)')
+            plt.ylim([5, 50])
+            plt.grid(True)
+            plt.legend()
+            plt.tight_layout()
+
+    except:
+        print('>> Skipping Loss Curves')
 
     print('>> Loading dataset')
     dataset = data.Dataset(args)
     n_classes = dataset.n_classes
-    n_samples = 10
 
     print('>> Constructing model')
     if vib_model:
@@ -193,31 +197,36 @@ def test(args):
         inn.save(model_fname[:-3] + '.avg.pt')
     inn.eval()
 
-    print('>> Determining test accuracy')
-    metrics = test_metrics(inn, dataset, args)
-    # the numbers are np.float32, and json won't take it if not cast to float() explicitly.
-    results_dict = {'test_metrics': metrics}
+    if eval_test_acc:
+        print('>> Determining test accuracy')
+        metrics = test_metrics(inn, dataset, args)
+        results_dict = {'test_metrics': metrics}
 
-    print('>> Plotting calibration curve')
-    ece, mce, ice, ovc = calibration_curve(inn, dataset)
-    results_dict['calib_err'] = {'ece': float(100. * ece),
-                                 'mce': float(100. * mce),
-                                 'ice': float(100. * ice),
-                                 'oce': float(ovc),
-                                 'gme': float(100. * (ece*mce*ice)**0.333333333)}
+    if eval_calibration:
+        print('>> Plotting calibration curve')
+        ece, mce, ice, ovc = calibration_curve(inn, dataset)
+        results_dict['calib_err'] = {'ece': float(100. * ece),
+                                     'mce': float(100. * mce),
+                                     'ice': float(100. * ice),
+                                     'oce': float(ovc),
+                                     'gme': float(100. * (ece*mce*ice)**0.333333333)}
 
     if not vib_model and not inn.feed_forward:
-        print('>> Plotting generated samples')
-        n_classes = dataset.n_classes
-        y_digits = torch.zeros(10 * n_samples, n_classes).cuda()
-        for i in range(10):
-            y_digits[n_samples * i : n_samples * (i+1), i] = 1.
-        show_samples(inn, dataset, y_digits)
+        if eval_sample_generation:
+            print('>> Plotting generated samples')
+            n_samples = 20
+            n_classes = dataset.n_classes
+            y_all_classes = torch.zeros(n_classes * n_samples, n_classes).cuda()
+            for i in range(n_classes):
+                y_all_classes[n_samples * i : n_samples * (i+1), i] = 1.
+            show_samples(inn, dataset, y_all_classes)
+            show_real_data(inn, dataset, y_all_classes)
 
-        print('>> Plotting latent space')
-        show_latent_space(inn, dataset, test_set=True)
+        if eval_latent_pca_plot:
+            print('>> Plotting latent space')
+            show_latent_space(inn, dataset, test_set=True)
 
-    if do_ood:
+    if eval_ood_detection:
         print('>> Determining outlier AUC')
         aucs_1t, aucs_2t, aucs_tt, entrop, delta_entrop = outlier_detection(inn, dataset, args, test_set=True)
 
@@ -241,13 +250,15 @@ def test(args):
         for fig in figs:
             fig.savefig(pp, format='pdf')
 
-    print('>> Generating data output files')
-    output.to_json(results_dict, output_dir)
-    output.to_console(results_dict, output_dir)
-    output.to_latex_table_row(results_dict, output_dir,
-                              name=args['checkpoints']['base_name'],
-                              italic_ood=False,
-                              blank_ood=(inn.feed_forward or inn.feed_forward_revnet),
-                              italic_entrop=False,
-                              blank_bitspdim=(inn.feed_forward or inn.feed_forward_revnet),
-                              blank_classif=(eval(args['training']['beta_IB']) == 0))
+    # can only save latex tables etc. if all the quantitative experiments were run
+    if eval_test_acc and eval_calibration and eval_ood_detection:
+        print('>> Generating data output files')
+        output.to_json(results_dict, output_dir)
+        output.to_console(results_dict, output_dir)
+        output.to_latex_table_row(results_dict, output_dir,
+                                  name=args['checkpoints']['base_name'],
+                                  italic_ood=False,
+                                  blank_ood=(inn.feed_forward or inn.feed_forward_revnet),
+                                  italic_entrop=False,
+                                  blank_bitspdim=(inn.feed_forward or inn.feed_forward_revnet),
+                                  blank_classif=(eval(args['training']['beta_IB']) == 0))

@@ -223,14 +223,16 @@ class GenerativeClassifier(nn.Module):
 
                 mu += mu_batch
                 counter += 1
+                print(counter, end='\r')
 
             mu /= counter
         self.mu.data  = mu.data
+        print()
 
-    def sample(self, y, temperature=1.):
+    def sample(self, y, temperature=1., temperature_class=1.):
         z = temperature * torch.randn(y.shape[0], self.ndim_tot).cuda()
-        mu = torch.sum(y.round().view(-1, self.n_classes, 1) * self.mu, dim=1)
-        return self.inn(z, rev=True)
+        mu = temperature_class * torch.sum(y.round().view(-1, self.n_classes, 1) * self.mu, dim=1)
+        return self.inn(z + mu, rev=True)
 
     def save(self, fname):
         torch.save({'inn': self.inn.state_dict(),

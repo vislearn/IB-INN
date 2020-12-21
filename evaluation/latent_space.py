@@ -7,22 +7,63 @@ from sklearn.manifold import TSNE
 from model import GenerativeClassifier
 
 
-def show_samples(model, data, y, T=0.75):
+def show_samples(model, data, y, T=0.7):
+    model.reset_mu(data)
+
     with torch.no_grad():
-        samples = model.sample(y, T)
+        samples = model.sample(y, T, 1.0)
         samples = data.de_augment(samples).cpu().numpy()
         samples = np.clip(samples, 0, 1)
 
-    w = min(y.shape[1], 10)
-    h = int(np.ceil(y.shape[0] / w))
+    h = min(y.shape[1], 20)
+    w = int(np.ceil(y.shape[0] / h))
 
-    plt.figure()
+    plt.figure(figsize=(w, h))
     for k in range(y.shape[0]):
         plt.subplot(h, w, k + 1)
         if data.dataset == 'MNIST':
             plt.imshow(samples[k], cmap='gray')
         else:
             plt.imshow(samples[k].transpose(1, 2, 0))
+        plt.xticks([])
+        plt.yticks([])
+
+    plt.tight_layout()
+
+def show_real_data(model, data, y, T=0.75):
+    n_classes = y.shape[1]
+    y = np.argmax(y.cpu().numpy(), axis=1)
+
+    all_imgs = []
+    for x, y_true in data.test_loader:
+        for i in range(x.shape[0]):
+            yi = y_true[i].item()
+            all_imgs.append((x[i], yi))
+
+    plotted_imgs = []
+    for yi in y:
+        for k, (xk, yk) in enumerate(all_imgs):
+            if yk == yi:
+                xk = data.de_augment(xk.unsqueeze(0)).squeeze().numpy()
+                xk = np.clip(xk, 0, 1)
+                xk = xk.transpose(1, 2, 0)
+                plotted_imgs.append(xk)
+                all_imgs.pop(k)
+                break
+        else:
+            plotted_imgs.append(np.ones((xk.shape[1], xk.shape[1], 3)))
+
+
+    h = min(n_classes, 20)
+    w = int(np.ceil(len(y) / h))
+
+    plt.figure(figsize=(w, h))
+    for k in range(len(y)):
+        plt.subplot(h, w, k + 1)
+        if data.dataset == 'MNIST':
+            plt.imshow(plotted_imgs[k], cmap='gray')
+        else:
+            plt.imshow(plotted_imgs[k])
         plt.xticks([])
         plt.yticks([])
 
