@@ -11,7 +11,7 @@ USAGE
 
 * Training (for one example configuration):
 
-      `python main.py train experiments_configs/cifar10/full_model.ini`
+      `python main.py train experiments_configs/cifar10/beta_ramp/beta_1.0000.ini`
 
 * Testing:
 
@@ -27,15 +27,7 @@ REQUIREMENTS
 To implement the INNs, we use of the FrEIA library
 (github.com/VLL-HD/FrEIA)
 
+Requires Python >= 3.6
+
 .. code:: sh
-
-    pip install git+https://github.com/VLL-HD/FrEIA.git
-
-Additional requirements:
-
-* pytorch=1.4.0
-* numpy=1.18.1
-* matplotlib=3.1.3
-* torchvision=0.2.2
-
-(other versions will likely work too, but have not been tested)
+    pip install -r requirements.txt
