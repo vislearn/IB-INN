@@ -42,7 +42,8 @@ To implement the INNs, we use of the FrEIA library
 
 **Additional requirements:**
 
-Requires Python >= 3.6
+Python >= 3.6
 
 .. code:: sh
+
     pip install -r requirements.txt
