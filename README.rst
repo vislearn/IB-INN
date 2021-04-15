@@ -31,9 +31,14 @@ REQUIREMENTS
 To implement the INNs, we use of the FrEIA library
 (github.com/VLL-HD/FrEIA)
 
+**NOTE** This code currently only works with the previous 0.2 version of FrEIA. To install it:
+
 .. code:: sh
 
-    pip install git+https://github.com/VLL-HD/FrEIA.git
+    git clone https://github.com/VLL-HD/FrEIA.git
+    cd FrEIA
+    git checkout v0.2
+    python setup.py develop
 
 Additional requirements:
 
