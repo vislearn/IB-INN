@@ -11,11 +11,15 @@ USAGE
 
 * Training (for one example configuration):
 
-      `python main.py train experiments_configs/cifar10/beta_ramp/beta_1.0000.ini`
+  .. code:: sh
+  
+    python main.py train experiments_configs/cifar10/beta_ramp/beta_1.0000.ini
 
 * Testing:
 
-      `python main.py test experiments_configs/cifar10/full_model.ini`
+  .. code:: sh
+   
+    python main.py test experiments_configs/cifar10/beta_ramp/beta_1.0000.ini`
 
 * The cifar/mnist datasets should be downloaded automatically the first time
   it is run. For the OoD evaluation, tiny imagenet and quickdraw have to be downloaded
@@ -26,6 +30,17 @@ REQUIREMENTS
 
 To implement the INNs, we use of the FrEIA library
 (github.com/VLL-HD/FrEIA)
+
+**NOTE** This code currently only works with the previous 0.2 version of FrEIA. To install it:
+
+.. code:: sh
+
+    git clone https://github.com/VLL-HD/FrEIA.git
+    cd FrEIA
+    git checkout v0.2
+    python setup.py develop
+
+**Additional requirements:**
 
 Requires Python >= 3.6
 
