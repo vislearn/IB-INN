@@ -40,11 +40,9 @@ To implement the INNs, we use of the FrEIA library
     git checkout v0.2
     python setup.py develop
 
-Additional requirements:
+**Additional requirements:**
 
-* pytorch=1.4.0
-* numpy=1.18.1
-* matplotlib=3.1.3
-* torchvision=0.2.2
+Requires Python >= 3.6
 
-(other versions will likely work too, but have not been tested)
+.. code:: sh
+    pip install -r requirements.txt
