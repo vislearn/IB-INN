@@ -3,7 +3,7 @@ FrEIA @ git+https://github.com/VLL-HD/FrEIA.git@c5fe1af0de8ce9122b5b61924ad75a19
 joblib==1.0.0
 kiwisolver==1.3.1
 matplotlib==3.3.3
-numpy==1.19.5
+numpy==1.22.0
 Pillow==8.1.1
 pkg-resources==0.0.0
 pyparsing==2.4.7
