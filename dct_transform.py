@@ -18,7 +18,6 @@ def dct_1d(x):
 
     # reshape the input signal to a 2D tensor with the last dim flattened
     x = x.contiguous().view(-1, N)
-    x = x.unsqueeze(0)
 
     # rearrange cols
     v = torch.cat([x[:, ::2], x[:, 1::2].flip([1])], dim=-1)
@@ -62,7 +61,7 @@ def idct_1d(X):
 
     V = torch.cat([V_r.unsqueeze(2), V_i.unsqueeze(2)], dim=2)
 
-    v = torch.irfft(V, 1, onesided=False)
+    v = torch.fft.irfft(torch.view_as_complex(V),n=V.shape[1], dim=1)
     x = v.new_zeros(v.shape)
     x[:, ::2] += v[:, :N - (N // 2)]
     x[:, 1::2] += v.flip([1])[:, :N // 2]
