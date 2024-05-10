@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import pdb
 
 '''adapted from https://github.com/zh217/torch-dct'''
 
@@ -11,18 +12,24 @@ def dct_1d(x):
     :param x: the input signal
     :return: the DCT-II of the signal over the last dimension
     """
+
     x_shape = x.shape
     N = x_shape[-1]
+
+    # reshape the input signal to a 2D tensor with the last dim flattened
     x = x.contiguous().view(-1, N)
 
-    v = torch.cat([x[:, ::2], x[:, 1::2].flip([1])], dim=1)
+    # rearrange cols
+    v = torch.cat([x[:, ::2], x[:, 1::2].flip([1])], dim=-1)
 
-    Vc = torch.rfft(v, 1, onesided=False)
+    # Apply 1-D real-to-complex Fast Fourier Transform along last dim
+    Vc = torch.view_as_real( torch.fft.fft(v, dim=1))
 
     k = - torch.arange(N, dtype=x.dtype, device=x.device)[None, :] * np.pi / (2 * N)
     W_r = torch.cos(k)
     W_i = torch.sin(k)
 
+    # Apply DCT formula
     V = Vc[:, :, 0] * W_r - Vc[:, :, 1] * W_i
     V = 2 * V.view(*x_shape)
 
@@ -54,7 +61,7 @@ def idct_1d(X):
 
     V = torch.cat([V_r.unsqueeze(2), V_i.unsqueeze(2)], dim=2)
 
-    v = torch.irfft(V, 1, onesided=False)
+    v = torch.fft.irfft(torch.view_as_complex(V),n=V.shape[1], dim=1)
     x = v.new_zeros(v.shape)
     x[:, ::2] += v[:, :N - (N // 2)]
     x[:, 1::2] += v.flip([1])[:, :N // 2]
@@ -124,5 +131,3 @@ if __name__ == '__main__':
 
         err = torch.abs(x - x_inv).max()
         print(N, err.item(), flush=True)
-
-

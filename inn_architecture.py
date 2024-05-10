@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import conv2d, interpolate
 import numpy as np
+import pdb
 
 import FrEIA.framework as Ff
 import FrEIA.modules as Fm
@@ -123,6 +124,7 @@ def constuct_inn(classifier, verbose=False):
     channels = classifier.input_channels
 
     if classifier.dataset == 'MNIST':
+        # import pdb; pdb.set_trace()
         nodes.append(Ff.Node(nodes[-1].out0, Fm.Reshape, {'target_dim':(1, *classifier.dims)}))
         nodes.append(Ff.Node(nodes[-1].out0, Fm.HaarDownsampling, {'rebalance':1.}))
         channels *= 4

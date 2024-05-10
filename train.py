@@ -97,6 +97,8 @@ def train(args):
 
             for i_batch, (x,l) in enumerate(dataset.train_loader):
 
+                import pdb; pdb.set_trace()
+
                 x, y = x.cuda(), dataset.onehot(l.cuda(), label_smoothing)
                 losses = inn(x, y)
 
