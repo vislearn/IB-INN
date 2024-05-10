@@ -18,6 +18,7 @@ def dct_1d(x):
 
     # reshape the input signal to a 2D tensor with the last dim flattened
     x = x.contiguous().view(-1, N)
+    x = x.unsqueeze(0)
 
     # rearrange cols
     v = torch.cat([x[:, ::2], x[:, 1::2].flip([1])], dim=-1)
